@@ -3,6 +3,21 @@ from moods import *
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
+
+
+@app.route('/about_us')
+def about_us():
+    # Render the about_us.html template
+    return render_template('about_us.html')
+
+@app.route('/about_project')
+def about_project():
+    # Render the about_project.html template
+    return render_template('about_project.html')
+
+
+
+
 def search_genre(genre):
     # Authenticate with Spotify API
     client_credentials_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
@@ -21,6 +36,9 @@ def search_genre(genre):
         return genres
     else:
         return []  # Return an empty list if no artists were found
+
+
+
 
 def get_track_recommendations(title, artist):
     # Search for the track
