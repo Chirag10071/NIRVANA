@@ -1,43 +1,7 @@
-from flask import Flask, request, redirect, session, render_template, jsonify,json,url_for
-from flask_mail import Mail, Message    
-from spotipy.oauth2 import SpotifyClientCredentials
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-from motor.motor_asyncio import AsyncIOMotorClient
-import requests,base64,spotipy
-import pymongo
-from concurrent.futures import ThreadPoolExecutor
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
-import shazamio
-import sounddevice as sd
-import soundfile as sf
-import tempfile
-import threading
-import os
-
+from credentials import *
+from moods import *
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
-
-client = pymongo.MongoClient('mongodb://localhost:27017/')
-db = client['music_db']
-collection = db['tracks']
-feedbacks_db = client['feedbacks_db']
-feedbacks_collection = feedbacks_db['feedbacks']
-
-CLIENT_ID = '1b1b24fc94f2465f92cf10b64d1317da'
-CLIENT_SECRET = 'c88f8847d6ef4a60b8c7003318867932'
-REDIRECT_URI = 'http://127.0.0.1:8080/callback'
-SCOPE = 'user-read-email user-read-private playlist-modify-public playlist-modify-private'
-GENRE_URL = 'https://api.spotify.com/v1/recommendations/available-genre-seeds'
-MOOD_URL = 'https://api.spotify.com/v1/browse/categories/mood/playlists'
-AUTHORIZE_URL = 'https://accounts.spotify.com/authorize'
-TOKEN_URL = 'https://accounts.spotify.com/api/token'
-
-
-client_credentials_manager = SpotifyClientCredentials(client_id='1b1b24fc94f2465f92cf10b64d1317da', client_secret='c88f8847d6ef4a60b8c7003318867932')
-sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
-sp_oauth = SpotifyOAuth(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, scope=SCOPE)
 
 def search_genre(genre):
     # Authenticate with Spotify API
@@ -74,14 +38,17 @@ def get_track_recommendations(title, artist):
     recommendations = sp.recommendations(seed_tracks=[track_id], limit=20)
     track_ids = [track['id'] for track in recommendations['tracks']]
     return track_ids
-def record_audio(duration, samplerate=44100, channels=2):
-    print("Recording audio...")
-    recording = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=channels, dtype='int16')
-    sd.wait()
-    return recording, samplerate
+class AudioRecorder:
+    @staticmethod
+    def record_audio(duration, samplerate=44100, channels=2):
+        print("Recording audio...")
+        recording = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=channels, dtype='int16')
+        sd.wait()
+        return recording, samplerate
 
-def save_audio(recording, filename, samplerate):
-    sf.write(filename, recording, samplerate)
+    @staticmethod
+    def save_audio(recording, filename, samplerate):
+        sf.write(filename, recording, samplerate)
 
 async def identify_music(filename):
     print("Identifying music...")
@@ -346,64 +313,7 @@ def fetch_and_store_tracks(artist, genre, session_features):
     except Exception as e:
         print(f"Error fetching and storing tracks for {artist} and {genre}: {str(e)}")
 
-mood_keywords = [
-    "happy", "sad", "energetic", "relaxing", "uplifting", "chill", "party", "mellow", "romantic",
-    "melancholic", "exciting", "calm", "lively", "dreamy", "groovy", "reflective", "aggressive",
-    "serene", "peaceful", "joyful", "hopeful", "melancholy", "blissful", "sentimental", "intense",
-    "playful", "optimistic", "dramatic", "moody", "soothing", "bittersweet", "dark", "light",
-    "inspiring", "nostalgic", "empowering", "whimsical", "ethereal", "triumphant", "mysterious",
-    "enigmatic", "pensive", "tranquil", "enthusiastic", "euphoric", "thoughtful", "suspenseful",
-    "ecstatic"
-]
-mood_ranges = {
-    "happy": {"valence_range": (0.6, 1.0), "energy_range": (0.6, 1.0), "tempo_range": (100, 180), "danceability_range": (0.5, 1.0)},
-    "sad": {"valence_range": (0.0, 0.4), "energy_range": (0.0, 0.5), "tempo_range": (50, 100), "acousticness_range": (0.6, 1.0)},
-    "energetic": {"energy_range": (0.7, 1.0), "tempo_range": (120, 200), "loudness_range": (-10, -4)},
-    "relaxing": {"energy_range": (0.2, 0.5), "tempo_range": (50, 100), "acousticness_range": (0.5, 1.0), "loudness_range": (-30, -15)},
-    "uplifting": {"valence_range": (0.6, 1.0), "energy_range": (0.5, 1.0), "tempo_range": (100, 160)},
-    "chill": {"energy_range": (0.2, 0.5), "tempo_range": (60, 100), "acousticness_range": (0.5, 1.0)},
-    "party": {"energy_range": (0.7, 1.0), "tempo_range": (100, 200), "loudness_range": (-10, -4)},
-    "mellow": {"energy_range": (0.2, 0.5), "tempo_range": (50, 90), "acousticness_range": (0.6, 1.0), "loudness_range": (-30, -15)},
-    "romantic": {"valence_range": (0.5, 0.8), "tempo_range": (60, 100), "acousticness_range": (0.6, 1.0)},
-    "melancholic": {"valence_range": (0.0, 0.4), "energy_range": (0.0, 0.5), "tempo_range": (50, 100), "acousticness_range": (0.6, 1.0)},
-    "exciting": {"energy_range": (0.7, 1.0), "tempo_range": (150, 220), "loudness_range": (-8, -3)},
-    "calm": {"energy_range": (0.2, 0.5), "tempo_range": (40, 90), "acousticness_range": (0.6, 1.0), "loudness_range": (-30, -15)},
-    "lively": {"energy_range": (0.6, 1.0), "tempo_range": (100, 150), "loudness_range": (-8, -3)},
-    "dreamy": {"valence_range": (0.5, 0.8), "tempo_range": (60, 110), "acousticness_range": (0.6, 1.0)},
-    "groovy": {"energy_range": (0.6, 1.0), "tempo_range": (90, 130), "danceability_range": (0.5, 1.0)},
-    "reflective": {"valence_range": (0.3, 0.7), "energy_range": (0.2, 0.6), "tempo_range": (50, 100), "acousticness_range": (0.5, 1.0)},
-    "aggressive": {"energy_range": (0.7, 1.0), "tempo_range": (100, 180), "loudness_range": (-3, 0)},
-    "serene": {"valence_range": (0.4, 0.7), "tempo_range": (40, 80), "acousticness_range": (0.6, 1.0), "loudness_range": (-30, -15)},
-    "peaceful": {"valence_range": (0.4, 0.7), "tempo_range": (40, 80), "acousticness_range": (0.6, 1.0), "loudness_range": (-30, -15)},
-    "joyful": {"valence_range": (0.7, 1.0), "energy_range": (0.7, 1.0), "tempo_range": (100, 160)},
-    "hopeful": {"valence_range": (0.6, 0.9), "energy_range": (0.6, 1.0), "tempo_range": (90, 140)},
-    "blissful": {"valence_range": (0.7, 1.0), "energy_range": (0.6, 1.0), "tempo_range": (80, 120)},
-    "sentimental": {"valence_range": (0.3, 0.7), "energy_range": (0.2, 0.6), "tempo_range": (50, 90), "acousticness_range": (0.5, 1.0)},
-    "intense": {"valence_range": (0.3, 0.7), "energy_range": (0.7, 1.0), "tempo_range": (120, 200), "loudness_range": (-5, 0)},
-    "playful": {"valence_range": (0.6, 1.0), "energy_range": (0.6, 1.0), "tempo_range": (100, 160)},
-    "optimistic": {"valence_range": (0.6, 1.0), "energy_range": (0.5, 1.0), "tempo_range": (90, 140)},
-    "dramatic": {"valence_range": (0.2, 0.6), "energy_range": (0.6, 1.0), "tempo_range": (80, 120)},
-    "moody": {"valence_range": (0.2, 0.6), "energy_range": (0.2, 0.6), "tempo_range": (60, 120), "acousticness_range": (0.5, 1.0)},
-    "soothing": {"valence_range": (0.4, 0.7), "energy_range": (0.2, 0.5), "tempo_range": (40, 90), "acousticness_range": (0.6, 1.0), "loudness_range": (-30, -15)},
-    "bittersweet": {"valence_range": (0.3, 0.7), "energy_range": (0.2, 0.6), "tempo_range": (60, 100)},
-    "dark": {"valence_range": (0.0, 0.4), "energy_range": (0.2, 0.6), "tempo_range": (60, 120), "acousticness_range": (0.6, 1.0)},
-    "light": {"valence_range": (0.6, 1.0), "energy_range": (0.4, 0.7), "tempo_range": (80, 120)},
-    "inspiring": {"valence_range": (0.7, 1.0), "energy_range": (0.7, 1.0), "tempo_range": (100, 160)},
-    "nostalgic": {"valence_range": (0.3, 0.7), "energy_range": (0.3, 0.7), "tempo_range": (60, 100), "acousticness_range": (0.5, 1.0)},
-    "empowering": {"valence_range": (0.6, 1.0), "energy_range": (0.7, 1.0), "tempo_range": (100, 160)},
-    "whimsical": {"valence_range": (0.5, 0.8), "energy_range": (0.5, 0.8), "tempo_range": (80, 120)},
-    "ethereal": {"valence_range": (0.4, 0.7), "energy_range": (0.2, 0.5), "tempo_range": (40, 90), "acousticness_range": (0.6, 1.0), "loudness_range": (-30, -15)},
-    "triumphant": {"valence_range": (0.7, 1.0), "energy_range": (0.7, 1.0), "tempo_range": (100, 160)},
-    "mysterious": {"valence_range": (0.3, 0.7), "energy_range": (0.3, 0.7), "tempo_range": (60, 120), "acousticness_range": (0.5, 1.0)},
-    "enigmatic": {"valence_range": (0.3, 0.7), "energy_range": (0.3, 0.7), "tempo_range": (60, 120), "acousticness_range": (0.5, 1.0)},
-    "pensive": {"valence_range": (0.3, 0.7), "energy_range": (0.2, 0.5), "tempo_range": (50, 100), "acousticness_range": (0.5, 1.0), "loudness_range": (-30, -15)},
-    "tranquil": {"valence_range": (0.4, 0.7), "energy_range": (0.2, 0.5), "tempo_range": (40, 90), "acousticness_range": (0.6, 1.0), "loudness_range": (-30, -15)},
-    "enthusiastic": {"valence_range": (0.6, 1.0), "energy_range": (0.7, 1.0), "tempo_range": (100, 160)},
-    "euphoric": {"valence_range": (0.7, 1.0), "energy_range": (0.7, 1.0), "tempo_range": (100, 160)},
-    "thoughtful": {"valence_range": (0.3, 0.7), "energy_range": (0.2, 0.6), "tempo_range": (50, 100), "acousticness_range": (0.5, 1.0)},
-    "suspenseful": {"valence_range": (0.2, 0.6), "energy_range": (0.6, 1.0), "tempo_range": (80, 120)},
-    "ecstatic": {"valence_range": (0.7, 1.0), "energy_range": (0.7, 1.0), "tempo_range": (120, 180)}
-}
+
 def get_access_token():
     url = 'https://accounts.spotify.com/api/token'
     headers = {'Authorization': 'Basic ' + base64.b64encode(f'{CLIENT_ID}:{CLIENT_SECRET}'.encode()).decode()}
@@ -464,8 +374,8 @@ def music_by_music():
         duration = 10  # Recording duration in seconds
         filename = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
 
-        recording, samplerate = record_audio(duration)
-        save_audio(recording, filename, samplerate)
+        recording, samplerate = AudioRecorder.record_audio(duration)
+        AudioRecorder.save_audio(recording, filename, samplerate)
 
         try:
             # Use asyncio.run to await the asynchronous function
@@ -536,6 +446,7 @@ def mood():
 def select_keywords():
     selected_keywords = request.form.getlist('selected_keywords')
     session['selected_keywords'] = selected_keywords
+    
     return redirect('/artist')
 
 @app.route('/artist')
@@ -679,7 +590,7 @@ def main():
         'genre': {'$exists': True, '$ne': None}
     }
     Genre_Artist_Combination = collection.count_documents(query1)
-    cursor_query1 = collection.find(query1, {'_id': 0, 'track_data': {'$slice': 10}})
+    cursor_query1 = collection.find(query1, {'_id': 0, 'track_data': {'$slice': 22}})
     document_counter = 0
 
     # Iterate over documents
@@ -701,7 +612,7 @@ def main():
         'mood': {'$exists': True}
     }
     Mood = collection.count_documents(query2)
-    cursor_query2 = collection.find(query2, {'_id': 0, 'track_data': {'$slice': 9}})
+    cursor_query2 = collection.find(query2, {'_id': 0, 'track_data': {'$slice': 20}})
     document_counter = 0
 
     for document in cursor_query2:
@@ -723,7 +634,7 @@ def main():
         'genre': None
     }
     Artist_only = collection.count_documents(query3)
-    cursor_query3 = collection.find(query3, {'_id': 0, 'track_data': {'$slice': 8}})
+    cursor_query3 = collection.find(query3, {'_id': 0, 'track_data': {'$slice': 18}})
     document_counter = 0
 
     for document in cursor_query3:
@@ -745,7 +656,7 @@ def main():
         'genre': {'$exists': True}
     }
     Genre_only = collection.count_documents(query4)
-    cursor_query4 = collection.find(query4, {'_id': 0, 'track_data': {'$slice': 7}})
+    cursor_query4 = collection.find(query4, {'_id': 0, 'track_data': {'$slice': 16}})
     document_counter = 0
 
     for document in cursor_query4:
@@ -765,11 +676,31 @@ def main():
     track_similarity_pairs = list(dict.fromkeys(track_similarity_pairs))
     
     track_info_list = []
+    unique_track_info_list = []
+
+    # Set to store track names that have been encountered
+    encountered_track_names = set()
+
+    # Iterate over track IDs fetched
     for track_id in track_similarity_pairs:
-        track_info = get_track_info(track_id,session.get('access_token') )
+        # Fetch track information using the track ID
+        track_info = get_track_info(track_id, session.get('access_token'))
+        
+        # Check if track information is available
         if track_info:
-            track_info_list.append(track_info)
-    return render_template('playback.html', tracks=track_info_list)
+            # Extract the track name from the track information
+            track_name = track_info.get('name', '')
+
+            # Check if the track name has already been encountered
+            if track_name not in encountered_track_names:
+                # Add the track name to the set of encountered track names
+                encountered_track_names.add(track_name)
+                
+                # Append the track information to the list of unique tracks
+                unique_track_info_list.append(track_info)
+
+    # Render the template with unique track information
+    return render_template('playback.html', tracks=unique_track_info_list)
 
 @app.route('/save_playlist', methods=['POST'])
 def save_playlist():

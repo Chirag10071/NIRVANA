@@ -19,7 +19,7 @@
         
         .container {
             display: flex;
-            flex-direction: row; /* Change flex direction to row */
+            flex-direction: column; /* Change flex direction to column */
             justify-content: center;
             align-items: center;
         }
@@ -65,7 +65,28 @@
         .button:hover {
             background-color: #FF5BAE; /* Add transparent background color on hover */
             border-color: #FFF7FC;
-            transform: scale(1.05); /* Increase dimensions on hover */
+        }
+
+        .heading {
+            font-size: 36px; /* Increase font size */
+            font-weight: bold; /* Increase font thickness */
+            margin: 10px 0; /* Adjust margin */
+            color: white; /* Set font color to white */
+        }
+
+        .sub-heading {
+            font-size: 24px; /* Increase font size */
+            font-weight: bold; /* Increase font thickness */
+            margin: 0; /* Remove margin */
+            color: white; /* Set font color to white */
+        }
+
+        .description {
+            color: white; /* Set font color to white */
+        }
+
+        .button-container {
+            display: flex;
         }
         
         @media (max-width: 600px) {
@@ -78,12 +99,17 @@
 </head>
 <body>
     <div class="container">
-        <form action="/music_by_music">
-            <button type="submit" class="button button-long">Get Music By Music</button>
-        </form>
-        <form action="/genre">
-            <button type="submit" class="button button-short">Get Customized Recommendations</button>
-        </form>
+        <h1 class="heading">Get closer to the Edge.</h1> <!-- Added first heading -->
+        <h2 class="sub-heading">There's a whole ocean out there and you're swimming in a pool</h2> <!-- Added second heading -->
+        <p class="description">Choose an action to get started.</p>
+        <div class="button-container">
+            <form action="/music_by_music">
+                <button type="submit" class="button button-long">Get Music By Music</button>
+            </form>
+            <form action="/genre">
+                <button type="submit" class="button button-short">Get Customized Recommendations</button>
+            </form>
+        </div>
     </div>
 </body>
 </html>
