@@ -1,4 +1,5 @@
-mood_keywords = [
+class mood_definer:
+    mood_keywords = [
     "happy", "sad", "energetic", "relaxing", "uplifting", "chill", "party", "mellow", "romantic",
     "melancholic", "exciting", "calm", "lively", "dreamy", "groovy", "reflective", "aggressive",
     "serene", "peaceful", "joyful", "hopeful", "melancholy", "blissful", "sentimental", "intense",
@@ -7,7 +8,7 @@ mood_keywords = [
     "enigmatic", "pensive", "tranquil", "enthusiastic", "euphoric", "thoughtful", "suspenseful",
     "ecstatic"
 ]
-mood_ranges = {
+    mood_ranges = {
     "happy": {"valence_range": (0.6, 1.0), "energy_range": (0.6, 1.0), "tempo_range": (100, 180), "danceability_range": (0.5, 1.0)},
     "sad": {"valence_range": (0.0, 0.4), "energy_range": (0.0, 0.5), "tempo_range": (50, 100), "acousticness_range": (0.6, 1.0)},
     "energetic": {"energy_range": (0.7, 1.0), "tempo_range": (120, 200), "loudness_range": (-10, -4)},

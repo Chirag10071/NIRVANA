@@ -20,7 +20,7 @@ def about_project():
 
 def search_genre(genre):
     # Authenticate with Spotify API
-    client_credentials_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
+    client_credentials_manager = SpotifyClientCredentials(client_id=credentials.CLIENT_ID, client_secret=credentials.CLIENT_SECRET)
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     
     # Search for artists associated with the given genre
@@ -39,8 +39,8 @@ def search_genre(genre):
 
 
 
-
-def get_track_recommendations(title, artist):
+class recommendations():
+ def get_track_recommendations(title, artist):
     # Search for the track
     results = sp.search(q=f'track:{title} artist:{artist}', type='track', limit=1)
     if(len(results['tracks']['items']) == 0): #error handling 
@@ -87,7 +87,7 @@ def get_track_info(track_id, access_token):
 
 def fetch_recommendations_for_mood(mood, genre_batches, collection):
     try:
-        mood_range = mood_ranges.get(mood, {})
+        mood_range = mood_definer.mood_ranges.get(mood, {})
         target_valence = mood_range.get('valence_range', None)
         target_energy = mood_range.get('energy_range', None)
         target_tempo = mood_range.get('tempo_range', None)
@@ -123,7 +123,7 @@ def search_tracks_by_sound_features(genres, moods):
     threads = []
 
     for mood in moods:
-        thread = threading.Thread(target=fetch_recommendations_for_mood, args=(mood, genre_batches, collection))
+        thread = threading.Thread(target=fetch_recommendations_for_mood, args=(mood, genre_batches, databases.collection))
         threads.append(thread)
         thread.start()
 
@@ -319,7 +319,7 @@ def fetch_artist_genres(artist_name):
         return []
 def store_tracks(artist_name, genre, track_data):
     try:
-            collection.insert_one({'artist': artist_name, 'genre': genre, 'track_data': track_data})
+            databases.collection.insert_one({'artist': artist_name, 'genre': genre, 'track_data': track_data})
     except Exception as e:
         print(f"Error storing tracks for {artist_name} and {genre}: {str(e)}")
 
@@ -334,7 +334,7 @@ def fetch_and_store_tracks(artist, genre, session_features):
 
 def get_access_token():
     url = 'https://accounts.spotify.com/api/token'
-    headers = {'Authorization': 'Basic ' + base64.b64encode(f'{CLIENT_ID}:{CLIENT_SECRET}'.encode()).decode()}
+    headers = {'Authorization': 'Basic ' + base64.b64encode(f'{credentials.CLIENT_ID}:{credentials.CLIENT_SECRET}'.encode()).decode()}
     data = {'grant_type': 'client_credentials'}
     response = requests.post(url, headers=headers, data=data)
     return response.json()['access_token']
@@ -357,7 +357,7 @@ def check_language_availability(genre):
     return len(artists['artists']['items']) > 0
 @app.route('/')
 def index():
-    auth_url = f'{AUTHORIZE_URL}?client_id={CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&scope={SCOPE}'
+    auth_url = f'{credentials.AUTHORIZE_URL}?client_id={credentials.CLIENT_ID}&response_type=code&redirect_uri={credentials.REDIRECT_URI}&scope={credentials.SCOPE}'
     return render_template('./index.html', auth_url=auth_url)
 
 @app.route('/callback')
@@ -375,11 +375,11 @@ def callback():
     data = {
         'grant_type': 'authorization_code',
         'code': code,
-        'redirect_uri': REDIRECT_URI,
-        'client_id': CLIENT_ID,
-        'client_secret': CLIENT_SECRET
+        'redirect_uri': credentials.REDIRECT_URI,
+        'client_id': credentials.CLIENT_ID,
+        'client_secret': credentials.CLIENT_SECRET
     }
-    response = requests.post(TOKEN_URL, data=data)
+    response = requests.post(credentials.TOKEN_URL, data=data)
     token_info = response.json()
     
     # Storing access token in session
@@ -419,7 +419,7 @@ def confirm():
     # If 'Yes' is clicked, proceed with processing the identified music
     title = request.form.get('title')
     artist = request.form.get('artist')
-    recommendations=get_track_recommendations(title, artist)
+    recommendations=recommendations.get_track_recommendations(title, artist)
     # Process the identified music as needed
     track_info_list = []
     for track_id in recommendations:
@@ -434,7 +434,7 @@ def genre():
         return redirect('/')
 
     headers = {'Authorization': f'Bearer {access_token}'}
-    response = requests.get(GENRE_URL, headers=headers)
+    response = requests.get(credentials.GENRE_URL, headers=headers)
     if response.status_code == 200:
         genres = response.json().get('genres', [])
         # Add image filenames to the genre data
@@ -458,7 +458,7 @@ def handle_trial():
     return gena
 @app.route('/mood')
 def mood():
-    return render_template('mood.html', keywords=mood_keywords)
+    return render_template('mood.html', keywords=mood_definer.mood_keywords)
 
 @app.route('/select_keywords', methods=['POST'])
 def select_keywords():
@@ -586,7 +586,7 @@ def main():
     try1=search_tracks_by_sound_features(selected_genres, selected_moods)
     print('Tracks fetched and stored successfully')
     print('Artists who perform none of the selected genres:', artists_performing_none_of_selected_genres)
-    collection_name = db['tracks']
+    collection_name = databases.db['tracks']
     track_data = list(collection_name.find())
 
     for entry in track_data:
@@ -607,8 +607,8 @@ def main():
         'artist': {'$exists': True, '$ne': None},
         'genre': {'$exists': True, '$ne': None}
     }
-    Genre_Artist_Combination = collection.count_documents(query1)
-    cursor_query1 = collection.find(query1, {'_id': 0, 'track_data': {'$slice': 22}})
+    Genre_Artist_Combination = databases.collection.count_documents(query1)
+    cursor_query1 = databases.collection.find(query1, {'_id': 0, 'track_data': {'$slice': 22}})
     document_counter = 0
 
     # Iterate over documents
@@ -629,8 +629,8 @@ def main():
         '_id': {'$exists': True},
         'mood': {'$exists': True}
     }
-    Mood = collection.count_documents(query2)
-    cursor_query2 = collection.find(query2, {'_id': 0, 'track_data': {'$slice': 20}})
+    Mood = databases.collection.count_documents(query2)
+    cursor_query2 = databases.collection.find(query2, {'_id': 0, 'track_data': {'$slice': 20}})
     document_counter = 0
 
     for document in cursor_query2:
@@ -651,8 +651,8 @@ def main():
         'artist': {'$exists': True},
         'genre': None
     }
-    Artist_only = collection.count_documents(query3)
-    cursor_query3 = collection.find(query3, {'_id': 0, 'track_data': {'$slice': 18}})
+    Artist_only = databases.collection.count_documents(query3)
+    cursor_query3 = databases.collection.find(query3, {'_id': 0, 'track_data': {'$slice': 18}})
     document_counter = 0
 
     for document in cursor_query3:
@@ -673,8 +673,8 @@ def main():
         'artist': None,
         'genre': {'$exists': True}
     }
-    Genre_only = collection.count_documents(query4)
-    cursor_query4 = collection.find(query4, {'_id': 0, 'track_data': {'$slice': 16}})
+    Genre_only = databases.collection.count_documents(query4)
+    cursor_query4 = databases.collection.find(query4, {'_id': 0, 'track_data': {'$slice': 16}})
     document_counter = 0
 
     for document in cursor_query4:
@@ -769,7 +769,7 @@ def add_tracks_to_playlist(access_token, playlist_id, track_ids):
     }
 
     response = requests.post(f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks', headers=headers, json=data)
-    client.drop_database('music_db')
+    databases.client.drop_database('music_db')
     session.clear()
 @app.route('/submit_feedback', methods=['POST'])
 def submit_feedback():
@@ -786,7 +786,7 @@ def submit_feedback():
         feedback = request.form['feedback'] 
 
         # Store feedback in MongoDB
-        feedback_collection = feedbacks_db['feedbacks']
+        feedback_collection = databases.feedbacks_db['feedbacks']
         feedback_collection.insert_one({'name': name, 'email': email, 'feedback': feedback})
         return render_template('final.html')
         # Send thank you email
