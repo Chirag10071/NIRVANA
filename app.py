@@ -46,15 +46,15 @@ class recommendations():
     if(len(results['tracks']['items']) == 0): #error handling 
         results = sp.search(q=artist, type='artist', limit=1)  
         artist_id = results['artists']['items'][0]['id']
-        recommendations = sp.recommendations(seed_artists=[artist_id], limit=20)
-        track_ids = [track['id'] for track in recommendations['tracks']]
+        recommendations1 = sp.recommendations(seed_artists=[artist_id], limit=20)
+        track_ids = [track['id'] for track in recommendations1['tracks']]
         return track_ids
     # Extract track ID
     track_id = results['tracks']['items'][0]['id']  # Assuming the first track in the search results
 
     # Get track recommendations based on the seed track
-    recommendations = sp.recommendations(seed_tracks=[track_id], limit=20)
-    track_ids = [track['id'] for track in recommendations['tracks']]
+    recommendations1 = sp.recommendations(seed_tracks=[track_id], limit=20)
+    track_ids = [track['id'] for track in recommendations1['tracks']]
     return track_ids
 class AudioRecorder:
     @staticmethod
@@ -419,10 +419,10 @@ def confirm():
     # If 'Yes' is clicked, proceed with processing the identified music
     title = request.form.get('title')
     artist = request.form.get('artist')
-    recommendations=recommendations.get_track_recommendations(title, artist)
+    recommendations1=recommendations.get_track_recommendations(title, artist)
     # Process the identified music as needed
     track_info_list = []
-    for track_id in recommendations:
+    for track_id in recommendations1:
         track_info = get_track_info(track_id,session.get('access_token') )
         if track_info:
             track_info_list.append(track_info)
