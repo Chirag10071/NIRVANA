@@ -7,8 +7,8 @@ class databases:
  feedbacks_collection = feedbacks_db['feedbacks']
 
 class credentials:
- CLIENT_ID = '1b1b24fc94f2465f92cf10b64d1317da'
- CLIENT_SECRET = 'c88f8847d6ef4a60b8c7003318867932'
+ CLIENT_ID = '------------------------'
+ CLIENT_SECRET = '----------------------'
  REDIRECT_URI = 'http://127.0.0.1:8080/callback'
  SCOPE = 'user-read-email user-read-private playlist-modify-public playlist-modify-private'
  GENRE_URL = 'https://api.spotify.com/v1/recommendations/available-genre-seeds'
